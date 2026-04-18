@@ -602,7 +602,7 @@ export default function App() {
               value={newTaskName}
               onChange={(e) => setNewTaskName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTask()}
-              autoFocus
+              autoFocus={navigator.maxTouchPoints === 0}
             />
             <button className="btn btn-add" onClick={addTask}>+</button>
           </div>

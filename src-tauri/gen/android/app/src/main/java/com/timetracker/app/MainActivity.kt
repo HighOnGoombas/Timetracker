@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -43,8 +44,12 @@ class TimerBridge(private val activity: MainActivity) {
 
     init {
         val channel = NotificationChannel(
-            CHANNEL_ID, "Laufende Timer", NotificationManager.IMPORTANCE_LOW
-        ).apply { setShowBadge(false) }
+            CHANNEL_ID, "Laufende Timer", NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
+        }
         activity.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
     }
@@ -62,15 +67,28 @@ class TimerBridge(private val activity: MainActivity) {
                 activity, 0, Intent(activity, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val stopAction = Notification.Action.Builder(
+                Icon.createWithResource(activity, android.R.drawable.ic_media_pause),
+                "Stoppen",
+                stopPending
+            ).build()
+
             val notification = Notification.Builder(activity, CHANNEL_ID)
                 .setContentTitle(taskName)
                 .setContentText("Zeiterfassung läuft")
-                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setSmallIcon(android.R.drawable.ic_menu_recent_history)
+                .setLargeIcon(Icon.createWithResource(activity, R.mipmap.ic_launcher))
+                .setColor(0xFF7C3AED.toInt())
+                .setColorized(true)
                 .setOngoing(true)
                 .setUsesChronometer(true)
                 .setWhen(startTime)
                 .setContentIntent(openPending)
-                .addAction(android.R.drawable.ic_media_pause, "Stoppen", stopPending)
+                .setStyle(
+                    Notification.MediaStyle()
+                        .setShowActionsInCompactView(0)
+                )
+                .addAction(stopAction)
                 .build()
             activity.getSystemService(NotificationManager::class.java)
                 .notify(NOTIF_ID, notification)
