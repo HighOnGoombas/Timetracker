@@ -16,6 +16,10 @@ src-tauri/gen/android/local.properties
 # Generated icon source (only keep the icons/ folder)
 app-icon.png
 
+# Signing
+*.jks
+*.keystore
+
 # OS
 .DS_Store
 Thumbs.db

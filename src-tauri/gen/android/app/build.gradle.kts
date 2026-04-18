@@ -16,6 +16,14 @@ val tauriProperties = Properties().apply {
 android {
     compileSdk = 36
     namespace = "com.timetracker.app"
+    signingConfigs {
+        create("release") {
+            storeFile = file("../../timetracker.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = "timetracker"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         applicationId = "com.timetracker.app"
@@ -37,6 +45,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

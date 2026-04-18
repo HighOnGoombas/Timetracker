@@ -8,7 +8,8 @@
       "Bash(npm run *)",
       "Bash(rustc --version)",
       "Bash(cargo --version)",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in ['version','productName'] if k in d}, indent=2\\)\\)\")"
     ]
   }
 }
