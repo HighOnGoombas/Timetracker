@@ -172,15 +172,6 @@ export default function App() {
     syncNotification(tasks);
   }, [tasks]);
 
-  useEffect(() => {
-    if (!openMenuId) return;
-    function handleOutside() {
-      setOpenMenuId(null);
-      setConfirmDeleteId(null);
-    }
-    document.addEventListener("click", handleOutside);
-    return () => document.removeEventListener("click", handleOutside);
-  }, [openMenuId]);
 
   useEffect(() => {
     function onNotificationStop(e: Event) {
@@ -358,7 +349,7 @@ export default function App() {
             </button>
           )}
 
-          <div className="task-menu" onClick={(e) => e.stopPropagation()}>
+          <div className="task-menu">
             <button
               className="btn btn-menu"
               onClick={() => {
@@ -374,7 +365,7 @@ export default function App() {
                   <>
                     <span className="menu-confirm-label">Wirklich löschen?</span>
                     <button className="menu-item danger" onClick={() => deleteTask(task.id)}>Ja, löschen</button>
-                    <button className="menu-item" onClick={() => setConfirmDeleteId(null)}>Abbrechen</button>
+                    <button className="menu-item" onClick={() => { setConfirmDeleteId(null); setOpenMenuId(null); }}>Abbrechen</button>
                   </>
                 ) : (
                   <>
@@ -407,6 +398,13 @@ export default function App() {
   const archivedTasks = tasks.filter((t) => t.archived).sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0));
 
   return (
+    <>
+    {openMenuId && (
+      <div
+        className="menu-backdrop"
+        onClick={() => { setOpenMenuId(null); setConfirmDeleteId(null); }}
+      />
+    )}
     <div className="app">
       <div className="header">
         <h1 className="title">Timetracker</h1>
@@ -469,5 +467,6 @@ export default function App() {
         )}
       </div>
     </div>
+    </>
   );
 }
