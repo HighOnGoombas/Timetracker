@@ -484,7 +484,7 @@ export default function App() {
       <div key={project.id} className="project-section">
         <div className={`project-header ${isExpanded && projectTasks.length > 0 ? "expanded" : ""} ${hasRunning ? "running" : ""}`}>
           <div className="project-header-main" onClick={() => toggleProjectExpand(project.id)}>
-            <span className={`expand-icon ${isExpanded ? "open" : ""}`}>▸</span>
+            <span className={`expand-icon project-expand-icon ${isExpanded ? "open" : ""}`}>▸</span>
             <span className="project-name">{project.name}</span>
             <span className="project-total">{formatTime(totalSeconds)}</span>
           </div>
@@ -583,15 +583,18 @@ export default function App() {
           </div>
         )}
 
-        <div className="add-row">
-          <input
-            className="add-input"
-            type="text"
-            placeholder="Neuer Task..."
-            value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-          />
+        <div className="add-section">
+          <div className="add-row">
+            <input
+              className="add-input"
+              type="text"
+              placeholder="Neuer Task..."
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+            />
+            <button className="btn btn-add" onClick={addTask}>+</button>
+          </div>
           {projects.length > 0 && (
             <select
               className="project-select"
@@ -604,7 +607,6 @@ export default function App() {
               ))}
             </select>
           )}
-          <button className="btn btn-add" onClick={addTask}>+</button>
         </div>
 
         <div className="task-list">
