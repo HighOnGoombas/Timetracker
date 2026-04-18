@@ -444,7 +444,7 @@ body {
 }
 
 .expand-icon {
-  font-size: 0.7rem;
+  font-size: 2rem;
   color: var(--text-muted);
   transition: transform 0.15s;
   flex-shrink: 0;
@@ -466,13 +466,16 @@ body {
   white-space: nowrap;
 }
 
+.task-row:has(+ .sessions-list) {
+  border-radius: 10px 10px 0 0;
+}
+
 .sessions-list {
   background: var(--surface);
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 10px 10px;
   padding: 4px 0;
-  margin-top: -2px;
 }
 
 .session-item {
@@ -654,6 +657,6 @@ body {
   }
 
   .expand-icon {
-    font-size: 0.85rem;
+    font-size: 1.4rem;
   }
 }
