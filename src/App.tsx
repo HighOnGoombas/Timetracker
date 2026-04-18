@@ -123,6 +123,7 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskName, setNewTaskName] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
   const [editingTimeValue, setEditingTimeValue] = useState("");
@@ -170,6 +171,16 @@ export default function App() {
     storeRef.current.set("tasks", tasks).then(() => storeRef.current?.save());
     syncNotification(tasks);
   }, [tasks]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handleOutside() {
+      setOpenMenuId(null);
+      setConfirmDeleteId(null);
+    }
+    document.addEventListener("click", handleOutside);
+    return () => document.removeEventListener("click", handleOutside);
+  }, [openMenuId]);
 
   useEffect(() => {
     function onNotificationStop(e: Event) {
@@ -347,23 +358,44 @@ export default function App() {
             </button>
           )}
 
-          {!isArchived && (
-            <button className="btn btn-archive" onClick={() => archiveTask(task.id)} title="Abschließen">✓</button>
-          )}
-
-          {isArchived && (
-            <button className="btn btn-restore" onClick={() => restoreTask(task.id)} title="Wiederherstellen">↩</button>
-          )}
-
-          {confirmDeleteId === task.id ? (
-            <div className="confirm-delete">
-              <span className="confirm-label">Sicher?</span>
-              <button className="btn btn-confirm-yes" onClick={() => deleteTask(task.id)}>✓</button>
-              <button className="btn btn-confirm-no" onClick={() => setConfirmDeleteId(null)}>✕</button>
-            </div>
-          ) : (
-            <button className="btn btn-delete" onClick={() => setConfirmDeleteId(task.id)} title="Löschen">✕</button>
-          )}
+          <div className="task-menu" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn btn-menu"
+              onClick={() => {
+                setOpenMenuId(openMenuId === task.id ? null : task.id);
+                setConfirmDeleteId(null);
+              }}
+            >
+              ⋯
+            </button>
+            {openMenuId === task.id && (
+              <div className="menu-dropdown">
+                {confirmDeleteId === task.id ? (
+                  <>
+                    <span className="menu-confirm-label">Wirklich löschen?</span>
+                    <button className="menu-item danger" onClick={() => deleteTask(task.id)}>Ja, löschen</button>
+                    <button className="menu-item" onClick={() => setConfirmDeleteId(null)}>Abbrechen</button>
+                  </>
+                ) : (
+                  <>
+                    {!isArchived && (
+                      <button className="menu-item" onClick={() => { archiveTask(task.id); setOpenMenuId(null); }}>
+                        ✓ Abschließen
+                      </button>
+                    )}
+                    {isArchived && (
+                      <button className="menu-item" onClick={() => { restoreTask(task.id); setOpenMenuId(null); }}>
+                        ↩ Wiederherstellen
+                      </button>
+                    )}
+                    <button className="menu-item danger" onClick={() => setConfirmDeleteId(task.id)}>
+                      ✕ Löschen
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {renderSessions(task)}

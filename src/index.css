@@ -297,21 +297,70 @@ body {
   padding: 4px 8px;
 }
 
-.btn-archive {
-  background: var(--green-bg);
-  color: var(--green);
-  border: 1px solid var(--green-border);
-  font-size: 0.85rem;
+.btn-menu {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  font-size: 1.2rem;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
 }
 
-.btn-restore {
+.btn-menu:hover {
+  color: var(--text);
+  border-color: var(--border);
+  opacity: 1;
+}
+
+.task-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  min-width: 160px;
+  z-index: 200;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
   background: transparent;
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 6px;
+  border: none;
+  color: var(--text);
   cursor: pointer;
   font-size: 0.9rem;
-  padding: 4px 8px;
+  padding: 10px 14px;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.menu-item:hover {
+  background: var(--border);
+}
+
+.menu-item.danger {
+  color: var(--red);
+}
+
+.menu-item.danger:hover {
+  background: var(--red-bg);
+}
+
+.menu-confirm-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 8px 14px 4px;
+  display: block;
+  border-bottom: 1px solid var(--border);
 }
 
 .archive-section {
@@ -560,13 +609,21 @@ body {
     min-width: 96px;
   }
 
-  .btn-archive,
-  .btn-restore {
+  .btn-menu {
     min-width: 44px;
     min-height: 44px;
-    font-size: 1rem;
+    font-size: 1.4rem;
     padding: 10px 14px;
     border-radius: 10px;
+  }
+
+  .menu-item {
+    font-size: 1rem;
+    padding: 14px 16px;
+  }
+
+  .menu-dropdown {
+    min-width: 180px;
   }
 
   .archive-header {
