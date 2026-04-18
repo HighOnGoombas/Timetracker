@@ -26,7 +26,6 @@ function applyAccent(presetId: string, isDark: boolean) {
   document.documentElement.style.setProperty("--accent", isDark ? preset.dark : preset.light);
 }
 
-// Apply synchronously before first render to avoid flash
 applyAccent(
   localStorage.getItem("accentColor") ?? "purple",
   (localStorage.getItem("theme") ?? "dark") === "dark"
@@ -47,6 +46,12 @@ interface Task {
   startedAt: number | null;
   archived: boolean;
   archivedAt: number | null;
+  projectId: string | null;
+}
+
+interface Project {
+  id: string;
+  name: string;
 }
 
 interface AndroidTimer {
@@ -116,15 +121,19 @@ function migrateTask(t: Task): Task {
     sessions: t.sessions ?? [],
     archived: t.archived ?? false,
     archivedAt: t.archivedAt ?? null,
+    projectId: t.projectId ?? null,
   };
 }
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [newTaskName, setNewTaskName] = useState("");
+  const [newTaskProjectId, setNewTaskProjectId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [moveProjectTaskId, setMoveProjectTaskId] = useState<string | null>(null);
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
   const [editingTimeValue, setEditingTimeValue] = useState("");
   const [isDark, setIsDark] = useState(() => {
@@ -133,10 +142,13 @@ export default function App() {
   });
   const [showArchive, setShowArchive] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set());
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [selectedColor, setSelectedColor] = useState(
     () => localStorage.getItem("accentColor") ?? "purple"
   );
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
   const storeRef = useRef<Store | null>(null);
   const initialized = useRef(false);
 
@@ -156,6 +168,8 @@ export default function App() {
       storeRef.current = store;
       const saved = await store.get<Task[]>("tasks");
       if (saved) setTasks(saved.map(migrateTask));
+      const savedProjects = await store.get<Project[]>("projects");
+      if (savedProjects) setProjects(savedProjects);
       initialized.current = true;
     }
     init();
@@ -172,6 +186,10 @@ export default function App() {
     syncNotification(tasks);
   }, [tasks]);
 
+  useEffect(() => {
+    if (!initialized.current || !storeRef.current) return;
+    storeRef.current.set("projects", projects).then(() => storeRef.current?.save());
+  }, [projects]);
 
   useEffect(() => {
     function onNotificationStop(e: Event) {
@@ -181,6 +199,12 @@ export default function App() {
     window.addEventListener("notification-stop", onNotificationStop);
     return () => window.removeEventListener("notification-stop", onNotificationStop);
   }, []);
+
+  function closeMenu() {
+    setOpenMenuId(null);
+    setConfirmDeleteId(null);
+    setMoveProjectTaskId(null);
+  }
 
   function stopTask(id: string) {
     const timestamp = Date.now();
@@ -199,9 +223,37 @@ export default function App() {
     if (!name) return;
     setTasks((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), name, totalSeconds: 0, sessions: [], isRunning: false, startedAt: null, archived: false, archivedAt: null },
+      { id: crypto.randomUUID(), name, totalSeconds: 0, sessions: [], isRunning: false, startedAt: null, archived: false, archivedAt: null, projectId: newTaskProjectId },
     ]);
     setNewTaskName("");
+  }
+
+  function addProject() {
+    const name = newProjectName.trim();
+    if (!name) return;
+    const id = crypto.randomUUID();
+    setProjects((prev) => [...prev, { id, name }]);
+    setExpandedProjectIds((prev) => new Set([...prev, id]));
+    setNewProjectName("");
+    setShowAddProject(false);
+  }
+
+  function deleteProject(id: string) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setTasks((prev) => prev.map((t) => t.projectId === id ? { ...t, projectId: null } : t));
+    closeMenu();
+  }
+
+  function assignToProject(taskId: string, projectId: string | null) {
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, projectId } : t));
+  }
+
+  function toggleProjectExpand(id: string) {
+    setExpandedProjectIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   function toggleTask(id: string) {
@@ -301,6 +353,68 @@ export default function App() {
     );
   }
 
+  function renderTaskMenu(task: Task, isArchived: boolean) {
+    return (
+      <div className="task-menu">
+        <button
+          className="btn btn-menu"
+          onClick={() => {
+            setOpenMenuId(openMenuId === task.id ? null : task.id);
+            setConfirmDeleteId(null);
+            setMoveProjectTaskId(null);
+          }}
+        >
+          ⋯
+        </button>
+        {openMenuId === task.id && (
+          <div className="menu-dropdown">
+            {confirmDeleteId === task.id ? (
+              <>
+                <span className="menu-confirm-label">Wirklich löschen?</span>
+                <button className="menu-item danger" onClick={() => deleteTask(task.id)}>Ja, löschen</button>
+                <button className="menu-item" onClick={() => { setConfirmDeleteId(null); closeMenu(); }}>Abbrechen</button>
+              </>
+            ) : moveProjectTaskId === task.id ? (
+              <>
+                <span className="menu-confirm-label">Zu Projekt verschieben</span>
+                <button className="menu-item" onClick={() => { assignToProject(task.id, null); closeMenu(); }}>
+                  {!task.projectId ? "✓ " : ""}Kein Projekt
+                </button>
+                {projects.map((p) => (
+                  <button key={p.id} className="menu-item" onClick={() => { assignToProject(task.id, p.id); closeMenu(); }}>
+                    {task.projectId === p.id ? "✓ " : ""}{p.name}
+                  </button>
+                ))}
+                <button className="menu-item" onClick={() => setMoveProjectTaskId(null)}>← Zurück</button>
+              </>
+            ) : (
+              <>
+                {!isArchived && projects.length > 0 && (
+                  <button className="menu-item" onClick={() => setMoveProjectTaskId(task.id)}>
+                    📁 Zu Projekt
+                  </button>
+                )}
+                {!isArchived && (
+                  <button className="menu-item" onClick={() => { archiveTask(task.id); closeMenu(); }}>
+                    ✓ Abschließen
+                  </button>
+                )}
+                {isArchived && (
+                  <button className="menu-item" onClick={() => { restoreTask(task.id); closeMenu(); }}>
+                    ↩ Wiederherstellen
+                  </button>
+                )}
+                <button className="menu-item danger" onClick={() => setConfirmDeleteId(task.id)}>
+                  ✕ Löschen
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderTaskRow(task: Task, isArchived = false) {
     const expanded = expandedIds.has(task.id);
     return (
@@ -349,44 +463,7 @@ export default function App() {
             </button>
           )}
 
-          <div className="task-menu">
-            <button
-              className="btn btn-menu"
-              onClick={() => {
-                setOpenMenuId(openMenuId === task.id ? null : task.id);
-                setConfirmDeleteId(null);
-              }}
-            >
-              ⋯
-            </button>
-            {openMenuId === task.id && (
-              <div className="menu-dropdown">
-                {confirmDeleteId === task.id ? (
-                  <>
-                    <span className="menu-confirm-label">Wirklich löschen?</span>
-                    <button className="menu-item danger" onClick={() => deleteTask(task.id)}>Ja, löschen</button>
-                    <button className="menu-item" onClick={() => { setConfirmDeleteId(null); setOpenMenuId(null); }}>Abbrechen</button>
-                  </>
-                ) : (
-                  <>
-                    {!isArchived && (
-                      <button className="menu-item" onClick={() => { archiveTask(task.id); setOpenMenuId(null); }}>
-                        ✓ Abschließen
-                      </button>
-                    )}
-                    {isArchived && (
-                      <button className="menu-item" onClick={() => { restoreTask(task.id); setOpenMenuId(null); }}>
-                        ↩ Wiederherstellen
-                      </button>
-                    )}
-                    <button className="menu-item danger" onClick={() => setConfirmDeleteId(task.id)}>
-                      ✕ Löschen
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          {renderTaskMenu(task, isArchived)}
         </div>
 
         {renderSessions(task)}
@@ -394,79 +471,162 @@ export default function App() {
     );
   }
 
+  function renderProjectSection(project: Project) {
+    const isExpanded = expandedProjectIds.has(project.id);
+    const projectTasks = activeTasks.filter((t) => t.projectId === project.id);
+    const totalSeconds = tasks
+      .filter((t) => t.projectId === project.id)
+      .reduce((sum, t) => sum + getDisplaySeconds(t, now), 0);
+    const menuId = `proj-${project.id}`;
+    const hasRunning = projectTasks.some((t) => t.isRunning);
+
+    return (
+      <div key={project.id} className="project-section">
+        <div className={`project-header ${isExpanded && projectTasks.length > 0 ? "expanded" : ""} ${hasRunning ? "running" : ""}`}>
+          <div className="project-header-main" onClick={() => toggleProjectExpand(project.id)}>
+            <span className={`expand-icon ${isExpanded ? "open" : ""}`}>▸</span>
+            <span className="project-name">{project.name}</span>
+            <span className="project-total">{formatTime(totalSeconds)}</span>
+          </div>
+          <div className="task-menu" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn btn-menu"
+              onClick={() => setOpenMenuId(openMenuId === menuId ? null : menuId)}
+            >
+              ⋯
+            </button>
+            {openMenuId === menuId && (
+              <div className="menu-dropdown">
+                <button className="menu-item danger" onClick={() => deleteProject(project.id)}>
+                  ✕ Projekt löschen
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {isExpanded && (
+          <div className="project-tasks">
+            {projectTasks.length === 0 && (
+              <p className="empty" style={{ padding: "8px 0" }}>Keine Tasks im Projekt</p>
+            )}
+            {projectTasks.map((task) => renderTaskRow(task))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const activeTasks = tasks.filter((t) => !t.archived);
+  const ungroupedTasks = activeTasks.filter(
+    (t) => !t.projectId || !projects.some((p) => p.id === t.projectId)
+  );
   const archivedTasks = tasks.filter((t) => t.archived).sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0));
 
   return (
     <>
-    {openMenuId && (
-      <div
-        className="menu-backdrop"
-        onClick={() => { setOpenMenuId(null); setConfirmDeleteId(null); }}
-      />
-    )}
-    <div className="app">
-      <div className="header">
-        <h1 className="title">Timetracker</h1>
-        <div className="header-actions">
-          <button
-            className="btn-theme"
-            onClick={() => { setShowColorPicker((s) => !s); }}
-            title="Farbe wählen"
-          >
-            🎨
-          </button>
-          <button className="btn-theme" onClick={() => setIsDark((d) => !d)} title={isDark ? "Light Mode" : "Dark Mode"}>
-            {isDark ? "☀️" : "🌙"}
-          </button>
-        </div>
-      </div>
-
-      {showColorPicker && (
-        <div className="color-picker">
-          {COLOR_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              className={`color-swatch ${selectedColor === preset.id ? "active" : ""}`}
-              style={{ background: isDark ? preset.dark : preset.light }}
-              onClick={() => { setSelectedColor(preset.id); setShowColorPicker(false); }}
-              title={preset.label}
-            />
-          ))}
-        </div>
+      {openMenuId && (
+        <div className="menu-backdrop" onClick={closeMenu} />
       )}
-
-      <div className="add-row">
-        <input
-          className="add-input"
-          type="text"
-          placeholder="Neuer Task..."
-          value={newTaskName}
-          onChange={(e) => setNewTaskName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTask()}
-          autoFocus
-        />
-        <button className="btn btn-add" onClick={addTask}>+</button>
-      </div>
-
-      <div className="task-list">
-        {activeTasks.length === 0 && archivedTasks.length === 0 && (
-          <p className="empty">Noch keine Tasks. Füge einen hinzu!</p>
-        )}
-
-        {activeTasks.map((task) => renderTaskRow(task))}
-
-        {archivedTasks.length > 0 && (
-          <div className="archive-section">
-            <button className="archive-header" onClick={() => setShowArchive((s) => !s)}>
-              <span>Archiv ({archivedTasks.length})</span>
-              <span className="archive-chevron">{showArchive ? "▲" : "▼"}</span>
+      <div className="app">
+        <div className="header">
+          <h1 className="title">Timetracker</h1>
+          <div className="header-actions">
+            <button
+              className={`btn-theme ${showAddProject ? "active" : ""}`}
+              onClick={() => { setShowAddProject((s) => !s); setNewProjectName(""); }}
+              title="Neues Projekt"
+            >
+              📁
             </button>
-            {showArchive && archivedTasks.map((task) => renderTaskRow(task, true))}
+            <button
+              className="btn-theme"
+              onClick={() => { setShowColorPicker((s) => !s); }}
+              title="Farbe wählen"
+            >
+              🎨
+            </button>
+            <button className="btn-theme" onClick={() => setIsDark((d) => !d)} title={isDark ? "Light Mode" : "Dark Mode"}>
+              {isDark ? "☀️" : "🌙"}
+            </button>
+          </div>
+        </div>
+
+        {showColorPicker && (
+          <div className="color-picker">
+            {COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                className={`color-swatch ${selectedColor === preset.id ? "active" : ""}`}
+                style={{ background: isDark ? preset.dark : preset.light }}
+                onClick={() => { setSelectedColor(preset.id); setShowColorPicker(false); }}
+                title={preset.label}
+              />
+            ))}
           </div>
         )}
+
+        {showAddProject && (
+          <div className="add-row">
+            <input
+              className="add-input"
+              type="text"
+              placeholder="Projektname..."
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addProject();
+                if (e.key === "Escape") setShowAddProject(false);
+              }}
+              autoFocus
+            />
+            <button className="btn btn-add" onClick={addProject}>+</button>
+          </div>
+        )}
+
+        <div className="add-row">
+          <input
+            className="add-input"
+            type="text"
+            placeholder="Neuer Task..."
+            value={newTaskName}
+            onChange={(e) => setNewTaskName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTask()}
+          />
+          {projects.length > 0 && (
+            <select
+              className="project-select"
+              value={newTaskProjectId ?? ""}
+              onChange={(e) => setNewTaskProjectId(e.target.value || null)}
+            >
+              <option value="">Kein Projekt</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
+          <button className="btn btn-add" onClick={addTask}>+</button>
+        </div>
+
+        <div className="task-list">
+          {activeTasks.length === 0 && archivedTasks.length === 0 && projects.length === 0 && (
+            <p className="empty">Noch keine Tasks. Füge einen hinzu!</p>
+          )}
+
+          {projects.map((project) => renderProjectSection(project))}
+
+          {ungroupedTasks.map((task) => renderTaskRow(task))}
+
+          {archivedTasks.length > 0 && (
+            <div className="archive-section">
+              <button className="archive-header" onClick={() => setShowArchive((s) => !s)}>
+                <span>Archiv ({archivedTasks.length})</span>
+                <span className="archive-chevron">{showArchive ? "▲" : "▼"}</span>
+              </button>
+              {showArchive && archivedTasks.map((task) => renderTaskRow(task, true))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }
