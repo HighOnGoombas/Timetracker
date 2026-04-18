@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tauri *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(npm run *)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(npm i *)"
+    ]
+  }
+}
