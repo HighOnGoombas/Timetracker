@@ -151,6 +151,7 @@ export default function App() {
   const [newProjectName, setNewProjectName] = useState("");
   const storeRef = useRef<Store | null>(null);
   const initialized = useRef(false);
+  const taskInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.body.classList.toggle("light", !isDark);
@@ -226,6 +227,7 @@ export default function App() {
       { id: crypto.randomUUID(), name, totalSeconds: 0, sessions: [], isRunning: false, startedAt: null, archived: false, archivedAt: null, projectId: newTaskProjectId },
     ]);
     setNewTaskName("");
+    taskInputRef.current?.blur();
   }
 
   function addProject() {
@@ -294,7 +296,7 @@ export default function App() {
 
   function deleteTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    setConfirmDeleteId(null);
+    closeMenu();
   }
 
   function startEditingTime(task: Task) {
@@ -424,8 +426,15 @@ export default function App() {
             <span className={`expand-icon ${expanded ? "open" : ""}`}>▸</span>
             <div className="task-info">
               <span className="task-name">{task.name}</span>
-              {isArchived && task.archivedAt && (
-                <span className="task-archived-date">{formatDate(task.archivedAt)}</span>
+              {isArchived && (
+                <span className="task-archived-date">
+                  {task.archivedAt && formatDate(task.archivedAt)}
+                  {task.projectId && projects.find(p => p.id === task.projectId) && (
+                    <span className="task-archived-project">
+                      {" · "}{projects.find(p => p.id === task.projectId)!.name}
+                    </span>
+                  )}
+                </span>
               )}
             </div>
           </div>
@@ -566,7 +575,7 @@ export default function App() {
         )}
 
         {showAddProject && (
-          <div className="add-row">
+          <div className="add-row" style={{ marginBottom: 12 }}>
             <input
               className="add-input"
               type="text"
@@ -586,26 +595,31 @@ export default function App() {
         <div className="add-section">
           <div className="add-row">
             <input
+              ref={taskInputRef}
               className="add-input"
               type="text"
               placeholder="Neuer Task..."
               value={newTaskName}
               onChange={(e) => setNewTaskName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addTask()}
+              autoFocus
             />
             <button className="btn btn-add" onClick={addTask}>+</button>
           </div>
           {projects.length > 0 && (
-            <select
-              className="project-select"
-              value={newTaskProjectId ?? ""}
-              onChange={(e) => setNewTaskProjectId(e.target.value || null)}
-            >
-              <option value="">Kein Projekt</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <div className="add-row">
+              <span className="project-select-label">Projekt:</span>
+              <select
+                className="project-select"
+                value={newTaskProjectId ?? ""}
+                onChange={(e) => setNewTaskProjectId(e.target.value || null)}
+              >
+                <option value="">Kein Projekt</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
 
