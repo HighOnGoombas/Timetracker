@@ -21,15 +21,28 @@ const COLOR_PRESETS: ColorPreset[] = [
   { id: "rose",   label: "Rose",    dark: "#fb7185", light: "#e11d48" },
 ];
 
+const FONT_SIZES = [
+  { id: "s",  label: "S",  px: 13 },
+  { id: "m",  label: "M",  px: 15 },
+  { id: "l",  label: "L",  px: 17 },
+  { id: "xl", label: "XL", px: 20 },
+];
+
 function applyAccent(presetId: string, isDark: boolean) {
   const preset = COLOR_PRESETS.find((p) => p.id === presetId) ?? COLOR_PRESETS[0];
   document.documentElement.style.setProperty("--accent", isDark ? preset.dark : preset.light);
+}
+
+function applyFontSize(sizeId: string) {
+  const size = FONT_SIZES.find((s) => s.id === sizeId) ?? FONT_SIZES[1];
+  document.documentElement.style.fontSize = `${size.px}px`;
 }
 
 applyAccent(
   localStorage.getItem("accentColor") ?? "purple",
   (localStorage.getItem("theme") ?? "dark") === "dark"
 );
+applyFontSize(localStorage.getItem("fontSize") ?? "m");
 
 interface Session {
   id: string;
@@ -149,6 +162,10 @@ export default function App() {
   );
   const [showAddProject, setShowAddProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [showFontPicker, setShowFontPicker] = useState(false);
+  const [selectedFontSize, setSelectedFontSize] = useState(
+    () => localStorage.getItem("fontSize") ?? "m"
+  );
   const storeRef = useRef<Store | null>(null);
   const initialized = useRef(false);
   const taskInputRef = useRef<HTMLInputElement>(null);
@@ -162,6 +179,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("accentColor", selectedColor);
   }, [selectedColor]);
+
+  useEffect(() => {
+    localStorage.setItem("fontSize", selectedFontSize);
+    applyFontSize(selectedFontSize);
+  }, [selectedFontSize]);
 
   useEffect(() => {
     async function init() {
@@ -191,6 +213,29 @@ export default function App() {
     if (!initialized.current || !storeRef.current) return;
     storeRef.current.set("projects", projects).then(() => storeRef.current?.save());
   }, [projects]);
+
+  useEffect(() => {
+    const log = () => {
+      const btn = document.querySelector('.btn-add') as HTMLElement | null;
+      const empty = document.querySelector('.empty') as HTMLElement | null;
+      const app = document.querySelector('.app') as HTMLElement | null;
+      if (btn) {
+        const s = getComputedStyle(btn);
+        console.log('btn-add | w:', btn.offsetWidth, 'h:', btn.offsetHeight, 'font:', s.fontSize, 'padding:', s.padding);
+      }
+      if (empty) {
+        const s = getComputedStyle(empty);
+        console.log('empty   | x:', empty.offsetLeft, 'y:', empty.offsetTop, 'w:', empty.offsetWidth, 'font:', s.fontSize);
+      }
+      if (app) {
+        console.log('app     | w:', app.clientWidth, 'h:', app.clientHeight);
+      }
+    };
+    document.addEventListener('focusin', () => {
+      console.log('--- BEFORE ---'); log();
+      setTimeout(() => { console.log('--- AFTER ---'); log(); }, 300);
+    });
+  }, []);
 
   useEffect(() => {
     function onNotificationStop(e: Event) {
@@ -548,8 +593,15 @@ export default function App() {
               📁
             </button>
             <button
+              className={`btn-theme ${showFontPicker ? "active" : ""}`}
+              onClick={() => { setShowFontPicker((s) => !s); setShowColorPicker(false); }}
+              title="Schriftgröße"
+            >
+              Aa
+            </button>
+            <button
               className="btn-theme"
-              onClick={() => { setShowColorPicker((s) => !s); }}
+              onClick={() => { setShowColorPicker((s) => !s); setShowFontPicker(false); }}
               title="Farbe wählen"
             >
               🎨
@@ -559,6 +611,21 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {showFontPicker && (
+          <div className="font-picker">
+            {FONT_SIZES.map((size) => (
+              <button
+                key={size.id}
+                className={`font-size-btn ${selectedFontSize === size.id ? "active" : ""}`}
+                onClick={() => { setSelectedFontSize(size.id); setShowFontPicker(false); }}
+                title={`${size.px}px`}
+              >
+                {size.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {showColorPicker && (
           <div className="color-picker">

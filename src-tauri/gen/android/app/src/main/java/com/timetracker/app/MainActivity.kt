@@ -5,13 +5,16 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.view.View
@@ -107,6 +110,12 @@ class MainActivity : TauriActivity() {
     private val statusBarBridge = StatusBarBridge()
     private val handler = Handler(Looper.getMainLooper())
 
+    override fun attachBaseContext(newBase: Context) {
+        val config = Configuration(newBase.resources.configuration)
+        config.fontScale = 1.0f
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -118,6 +127,11 @@ class MainActivity : TauriActivity() {
         handler.postDelayed({
             findWebView(window.decorView)?.let { wv ->
                 WebViewHolder.webView = wv
+                wv.settings.setSupportZoom(false)
+                wv.settings.builtInZoomControls = false
+                wv.settings.displayZoomControls = false
+                wv.settings.textZoom = 100
+                applySystemFont(wv)
                 wv.addJavascriptInterface(statusBarBridge, "AndroidStatusBar")
                 wv.addJavascriptInterface(TimerBridge(this), "AndroidTimer")
                 wv.reload()
@@ -148,6 +162,17 @@ class MainActivity : TauriActivity() {
                 this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001
             )
         }
+    }
+
+    private fun applySystemFont(wv: WebView) {
+        try {
+            val fontType = Settings.System.getString(contentResolver, "font_type")
+                ?: Settings.Global.getString(contentResolver, "font_type")
+            if (!fontType.isNullOrEmpty() && fontType != "default") {
+                wv.settings.sansSerifFontFamily = fontType
+                wv.settings.standardFontFamily = fontType
+            }
+        } catch (_: Exception) {}
     }
 
     private fun findWebView(view: View): WebView? {
