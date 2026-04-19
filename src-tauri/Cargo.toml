@@ -1,6 +1,6 @@
 [package]
 name = "timetracker"
-version = "1.0.1"
+version = "1.0.2"
 description = "Time Tracker Tray App"
 authors = []
 edition = "2021"
